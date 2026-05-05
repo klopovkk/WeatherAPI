@@ -10,7 +10,7 @@ namespace WeatherAPI.Controllers
         private static readonly List<WeatherModel> WeatherRecords = new();
 
         [HttpGet]
-        [ProducesResponseType(typeof(WeatherModel), StatusCodes.Status200OK)]
+        [ProducesResponseType(typeof(IEnumerable<WeatherModel>), StatusCodes.Status200OK)]
         public IActionResult Get()
         {
             return Ok(WeatherRecords);
@@ -27,7 +27,7 @@ namespace WeatherAPI.Controllers
         }
 
         [HttpPost]
-        [ProducesResponseType(StatusCodes.Status201Created)]
+        [ProducesResponseType(typeof(WeatherModel), StatusCodes.Status201Created)]
         [ProducesResponseType(StatusCodes.Status400BadRequest)]
         public IActionResult Create([FromBody] WeatherModel model)
         {
@@ -40,7 +40,7 @@ namespace WeatherAPI.Controllers
 
             WeatherRecords.Add(model);
 
-            return Created();
+            return CreatedAtAction(nameof(GetById), new { id = model.Id }, model);
         }
 
         [HttpPut("{id:int}")]
@@ -65,7 +65,7 @@ namespace WeatherAPI.Controllers
         }
 
         [HttpDelete("{id:int}")]
-        [ProducesResponseType(StatusCodes.Status200OK)]
+        [ProducesResponseType(StatusCodes.Status204NoContent)]
         [ProducesResponseType(StatusCodes.Status404NotFound)]
         public IActionResult Delete(int id)
         {
@@ -76,7 +76,7 @@ namespace WeatherAPI.Controllers
 
             WeatherRecords.Remove(existing);
 
-            return Ok();
+            return NoContent();
         }
     }
 }
