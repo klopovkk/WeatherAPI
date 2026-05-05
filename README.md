@@ -112,31 +112,139 @@ If the OpenAPI contract is incorrect or outdated:
 
 ## Swagger vs Scalar Comparison
 
-| Feature | Swagger UI | Scalar |
-|--------|------------|--------|
-| Maturity | Industry standard | Modern alternative |
-| UI Style | Traditional | Modern / minimal |
-| Developer Experience | Widely adopted | More polished UX |
-| Ecosystem | Very large | Growing |
-| Best Use Case | Standard API docs | Modern developer portals |
+After testing both Swagger UI and Scalar against the same OpenAPI document, I observed the following:
+
+### Which UI is Easier to Navigate?
+
+**Scalar** is easier to navigate for me personally.
+
+Reasons:
+
+- Cleaner and more modern interface
+- Better visual hierarchy between endpoints
+- More readable schema and response rendering
+- Feels less cluttered when browsing larger APIs
 
 ---
 
-## Contract Validation Analysis
+### Which One Would I Use in Production?
 
-The API contract is validated by ensuring:
+It depends on the audience:
 
-- OpenAPI spec reflects all implemented endpoints
-- Request/response models match actual code
-- Validation rules are represented via DataAnnotations
-- Response codes are explicitly defined
-- Swagger and Scalar both consume the same OpenAPI document
+- **Swagger UI** — better for internal teams because it is the industry standard and familiar to most developers
+- **Scalar** — better for external/public-facing API portals where developer experience and polished presentation matter more
 
-### Potential Risks
+---
 
-- Missing annotations may lead to incomplete documentation
-- API changes without contract updates cause drift
-- Incorrect validation rules lead to integration issues
+### What Differences Did I Notice?
+
+| Aspect | Swagger UI | Scalar |
+|--------|------------|--------|
+| Visual Design | Traditional / utilitarian | Modern / polished |
+| Navigation | Basic expandable sections | Cleaner structured navigation |
+| Readability | Good | Better for large schemas |
+| Familiarity | Very common in industry | Less common but growing |
+| First Impression | Functional | More professional / modern |
+
+---
+
+### Which Helps More When Consuming the API as a Client?
+
+**Scalar** helps more for manual API exploration/documentation reading because:
+
+- Better readability of request/response schemas
+- Cleaner endpoint grouping/navigation
+- Easier visual scanning of larger specifications
+
+However:
+
+- **Swagger UI** remains more practical in many teams due to familiarity and ecosystem support
+
+---
+
+## Contract Validation Challenge
+
+### Experiment Performed
+
+To demonstrate why OpenAPI is considered a contract, I intentionally created a mismatch between the actual API behavior and the documented contract.
+
+### Change Made
+
+I modified the `GET /weather/{id}` endpoint implementation to return a different response shape than declared in the OpenAPI specification.
+
+Declared contract:
+
+    [ProducesResponseType(typeof(WeatherModel), StatusCodes.Status200OK)]
+
+Actual implementation temporarily returned:
+
+    return Ok(new
+    {
+        Identifier = weather.Id,
+        weather.Date,
+        weather.TemperatureC
+    });
+
+This removed the `Summary` field and renamed `Id` to `Identifier`, while leaving the documented contract unchanged.
+
+---
+
+### Observed Result
+
+Swagger/Scalar documentation still described the response as:
+
+    {
+      "id": 1,
+      "date": "2026-05-05T00:00:00",
+      "temperatureC": 25,
+      "summary": "Hot"
+    }
+
+but the actual API returned:
+
+    {
+      "identifier": 1,
+      "date": "2026-05-05T00:00:00",
+      "temperatureC": 25
+    }
+
+---
+
+### What Broke
+
+A client generated from the OpenAPI contract expected:
+
+- `id`
+- `summary`
+
+but received:
+
+- `identifier`
+- no `summary`
+
+This caused runtime deserialization / mapping issues and broke client assumptions.
+
+---
+
+### Why This Demonstrates a Contract
+
+OpenAPI is considered a **contract** because it defines the agreed structure of communication between producer and consumer.
+
+When implementation diverges from that definition:
+
+- Documentation becomes inaccurate
+- Generated clients become invalid
+- Consumers fail at runtime despite successful compilation
+
+---
+
+### Key Takeaway
+
+A broken OpenAPI contract means:
+
+> The API implementation no longer matches what it promises to consumers.
+
+This demonstrates why maintaining synchronization between implementation and contract is critical in contract-first API development.
 
 ---
 
