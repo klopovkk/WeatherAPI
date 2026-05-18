@@ -1,267 +1,227 @@
-# Weather API – OpenAPI Contract Assignment
+# Weather API - Technical Debt Assignment
 
-## Implementation Overview
+## Business Requirement
 
-This project extends the default ASP.NET Core Web API template into a CRUD-based Weather API with a fully documented OpenAPI contract.
+A new endpoint was requested:
 
-### Implemented Endpoints
+GET /weather/summary/report
 
-- `GET /weather` — Get all weather records  
-- `GET /weather/{id}` — Get weather record by ID  
-- `POST /weather` — Create a new weather record  
-- `PUT /weather/{id}` — Update an existing weather record  
-- `DELETE /weather/{id}` — Delete a weather record  
+Deadline: 2 days.
 
 ---
 
-## Features Implemented
+# Part 1 — Identified Technical Debt
 
-- Data validation via DataAnnotations:
-  - `[Required]`
-  - `[Range]`
-  - `[StringLength]`
-- Explicit response type annotations (`ProducesResponseType`)
-- Proper HTTP status codes:
-  - 200 OK
-  - 201 Created
-  - 400 BadRequest
-  - 404 NotFound
-- Swagger UI integration
-- Scalar integration using the same OpenAPI document
-- OpenAPI specification exposed via JSON
+## 1. Business Logic Inside Controller
 
----
+### Problem
 
-## OpenAPI Questions
+The controller contains business logic for generating weather reports and manipulating data.
 
-### What is OpenAPI Specification?
+### Why It Is Technical Debt
 
-The OpenAPI Specification is a standardized, machine-readable format for describing REST APIs.
+Controllers should focus on HTTP concerns while business logic should be moved to dedicated services.
 
-It defines:
+### Impact
 
-- Available endpoints
-- HTTP methods
-- Request/response schemas
-- Parameters
-- Authentication methods
-- Status codes
-- Content types
+- Reduced maintainability
+- Harder testing
+- Higher coupling
 
-It serves as a **contract between backend and frontend systems**.
+### Decision
+
+A lightweight `WeatherReportService` was introduced.
 
 ---
 
-### What Formats Are Supported?
+## 2. Weak Validation
 
-OpenAPI supports two main formats:
+### Problem
 
-#### JSON
+The API accepted invalid values.
 
-{
-"openapi": "3.0.1",
-"info": {
-"title": "Weather API"
-}
-}
+Example:
 
+- Missing summary
+- Unrealistic temperatures
 
-#### YAML
+### Why It Is Technical Debt
 
-openapi: 3.0.1
-info:
-title: Weather API
+Invalid data can break reports and reduce reliability.
 
+### Impact
 
-#### Comparison
+- Bugs
+- Incorrect statistics
+- Bad API usage
 
-| JSON | YAML |
-|------|------|
-| Machine-friendly | Human-friendly |
-| More verbose | More readable |
-| Widely used in tooling | Common for manual editing |
+### Decision
 
----
+Validation attributes were added.
 
-### Why Is OpenAPI Important for Frontend/Backend Collaboration?
+Example:
 
-OpenAPI improves collaboration by providing a shared contract.
+```csharp
+[Required]
+[StringLength(50)]
+public string Summary { get; set; }
 
-Benefits:
-
-- Clear API expectations
-- Defined request/response models
-- Enables parallel development
-- Reduces integration mismatches
-- Supports client generation (SDKs)
-- Improves API testing and mocking
+[Range(-100,100)]
+public int TemperatureC { get; set; }
+```
 
 ---
 
-### What Happens If the Contract Is Incorrect or Outdated?
+## 3. Inconsistent API Responses
 
-If the OpenAPI contract is incorrect or outdated:
+### Problem
 
-- Frontend integration breaks
-- Generated API clients become invalid
-- Documentation becomes misleading
-- Contract tests fail
-- Runtime bugs occur due to mismatched expectations
+Different endpoints returned different response structures.
 
----
+Example:
 
-## Swagger vs Scalar Comparison
+```csharp
+return Ok("Deleted.");
+```
 
-After testing both Swagger UI and Scalar against the same OpenAPI document, I observed the following:
+vs
 
-### Which UI is Easier to Navigate?
+```csharp
+return Ok(new { result = existing });
+```
 
-**Scalar** is easier to navigate for me personally.
+### Why It Is Technical Debt
 
-Reasons:
+Inconsistent APIs are harder to consume and maintain.
 
-- Cleaner and more modern interface
-- Better visual hierarchy between endpoints
-- More readable schema and response rendering
-- Feels less cluttered when browsing larger APIs
+### Impact
 
----
+- Poor API usability
+- Frontend integration complexity
 
-### Which One Would I Use in Production?
+### Decision
 
-It depends on the audience:
-
-- **Swagger UI** — better for internal teams because it is the industry standard and familiar to most developers
-- **Scalar** — better for external/public-facing API portals where developer experience and polished presentation matter more
+Response formatting was standardized.
 
 ---
 
-### What Differences Did I Notice?
+## Technical Debt Intentionally Left Unfixed
 
-| Aspect | Swagger UI | Scalar |
-|--------|------------|--------|
-| Visual Design | Traditional / utilitarian | Modern / polished |
-| Navigation | Basic expandable sections | Cleaner structured navigation |
-| Readability | Good | Better for large schemas |
-| Familiarity | Very common in industry | Less common but growing |
-| First Impression | Functional | More professional / modern |
+### Static In-Memory Storage
 
----
+Reason:
+Replacing storage with a database would exceed the deadline and introduce unnecessary risk.
 
-### Which Helps More When Consuming the API as a Client?
+### Manual Id Generation
 
-**Scalar** helps more for manual API exploration/documentation reading because:
+Reason:
+Acceptable temporary limitation for a small in-memory demo API.
 
-- Better readability of request/response schemas
-- Cleaner endpoint grouping/navigation
-- Easier visual scanning of larger specifications
+### Repository Pattern
 
-However:
-
-- **Swagger UI** remains more practical in many teams due to familiarity and ecosystem support
+Reason:
+Too large for a 2-day deadline.
 
 ---
 
-## Contract Validation Challenge
+# Part 2 — Decision Making
 
-### Experiment Performed
+## Decision
 
-To demonstrate why OpenAPI is considered a contract, I intentionally created a mismatch between the actual API behavior and the documented contract.
+A combined approach was chosen:
 
-### Change Made
+- Deliver the feature
+- Fix only the highest-priority technical debt
 
-I modified the `GET /weather/{id}` endpoint implementation to return a different response shape than declared in the OpenAPI specification.
+### Prioritized
 
-Declared contract:
+- `/weather/summary/report`
+- Validation
+- Consistent API responses
+- Small service extraction
 
-    [ProducesResponseType(typeof(WeatherModel), StatusCodes.Status200OK)]
+### Deprioritized
 
-Actual implementation temporarily returned:
+- Database integration
+- Repository pattern
+- Full architecture redesign
 
-    return Ok(new
-    {
-        Identifier = weather.Id,
-        weather.Date,
-        weather.TemperatureC
-    });
+### Accepted Risks
 
-This removed the `Summary` field and renamed `Id` to `Identifier`, while leaving the documented contract unchanged.
-
----
-
-### Observed Result
-
-Swagger/Scalar documentation still described the response as:
-
-    {
-      "id": 1,
-      "date": "2026-05-05T00:00:00",
-      "temperatureC": 25,
-      "summary": "Hot"
-    }
-
-but the actual API returned:
-
-    {
-      "identifier": 1,
-      "date": "2026-05-05T00:00:00",
-      "temperatureC": 25
-    }
+- Data loss after restart
+- Limited scalability
+- Concurrency limitations
 
 ---
 
-### What Broke
+# Part 3 — Prioritization Backlog
 
-A client generated from the OpenAPI contract expected:
-
-- `id`
-- `summary`
-
-but received:
-
-- `identifier`
-- no `summary`
-
-This caused runtime deserialization / mapping issues and broke client assumptions.
+| Item | Type | Priority | Reason |
+|------|------|----------|--------|
+| Implement weather summary report | Feature | High | Business requirement |
+| Add validation | Technical Debt | High | Prevent invalid data |
+| Standardize responses | Technical Debt | High | Better API consistency |
+| Extract report service | Technical Debt | Medium | Maintainability |
+| Replace in-memory storage | Technical Debt | Low | Too large for deadline |
+| Repository layer | Technical Debt | Low | Large refactor |
+| Global exception handling | Technical Debt | Low | Not critical for delivery |
 
 ---
 
-### Why This Demonstrates a Contract
+# Part 4 — Stakeholder Communication
 
-OpenAPI is considered a **contract** because it defines the agreed structure of communication between producer and consumer.
+We completed the requested weather summary report feature within the deadline.
 
-When implementation diverges from that definition:
+To balance delivery speed and long-term maintainability, we also addressed a few important quality improvements, such as input validation and response consistency.
 
-- Documentation becomes inaccurate
-- Generated clients become invalid
-- Consumers fail at runtime despite successful compilation
+Some larger improvements were intentionally postponed because they would significantly increase development time and risk missing the deadline.
 
----
-
-### Key Takeaway
-
-A broken OpenAPI contract means:
-
-> The API implementation no longer matches what it promises to consumers.
-
-This demonstrates why maintaining synchronization between implementation and contract is critical in contract-first API development.
+The current solution supports the requested functionality and is suitable for the current scope, while additional scalability improvements can be planned later.
 
 ---
 
-## OpenAPI Endpoints
+# Part 5 — If Deadline Becomes 1 Day
 
-- Swagger UI: `/swagger`
-- Scalar UI: `/scalar/v1`
-- OpenAPI JSON: `/swagger/v1/swagger.json`
+The decision changes.
+
+Priority becomes delivering the feature with only minimal fixes.
+
+### Keep
+
+- `/weather/summary/report`
+- Basic validation
+
+### Postpone
+
+- Service extraction
+- Response standardization
+- Refactoring
+
+Trade-off:
+Higher technical debt is accepted to meet delivery expectations.
 
 ---
 
-## Summary
+# Part 6 — Reflection
 
-This project demonstrates:
+## What is technical debt?
 
-- RESTful CRUD API design in ASP.NET Core
-- OpenAPI contract definition
-- API documentation with Swagger and Scalar
-- Proper validation and HTTP semantics
-- Contract-first API design principles
+Technical debt is the cost of choosing a faster implementation today that may require additional work later.
+
+## Is technical debt always bad?
+
+No. It can be a conscious trade-off to deliver business value faster.
+
+## When is it acceptable?
+
+- Tight deadlines
+- MVP development
+- Uncertain requirements
+
+## How to reduce technical debt?
+
+- Code reviews
+- Refactoring
+- Automated tests
+- Coding standards
+- Time allocation for maintenance
