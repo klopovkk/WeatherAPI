@@ -1,5 +1,4 @@
 using System.ComponentModel.DataAnnotations;
-using Microsoft.AspNetCore.Mvc;
 
 namespace WeatherAPI
 {
@@ -10,10 +9,11 @@ namespace WeatherAPI
         [Required]
         public DateOnly Date { get; set; }
 
-        [Range(-50,50)]
+        [Range(-100, 100)]
         public int TemperatureC { get; set; }
 
+        [Required]
         [StringLength(50)]
-        public string? Summary { get; set; } = String.Empty;
+        public string Summary { get; set; } = string.Empty;
     }
 }
