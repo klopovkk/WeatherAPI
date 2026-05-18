@@ -1,4 +1,5 @@
 using Microsoft.AspNetCore.Mvc;
+using WeatherAPI.Services;
 
 namespace WeatherAPI.Controllers
 {
@@ -9,74 +10,126 @@ namespace WeatherAPI.Controllers
     {
         private static readonly List<WeatherModel> WeatherRecords = new();
 
-        [HttpGet]
-        [ProducesResponseType(typeof(IEnumerable<WeatherModel>), StatusCodes.Status200OK)]
-        public IActionResult Get()
+        private readonly WeatherReportService _weatherReportService;
+
+        public WeatherForecastController(
+            WeatherReportService weatherReportService)
         {
-            return Ok(WeatherRecords);
+            _weatherReportService = weatherReportService;
         }
 
-        [HttpGet("{id:int}")]
-        [ProducesResponseType(typeof(WeatherModel), StatusCodes.Status200OK)]
-        [ProducesResponseType(StatusCodes.Status404NotFound)]
-        public IActionResult GetById(int id)
+        [HttpGet]
+        public IActionResult Get()
         {
-            WeatherModel? model = WeatherRecords.FirstOrDefault(e => e.Id == id);
+            return Ok(new
+            {
+                data = WeatherRecords,
+                total = WeatherRecords.Count
+            });
+        }
 
-            return model == null ? NotFound() : Ok(model);
+        [HttpGet("{weatherId:int}")]
+        public IActionResult GetById(int weatherId)
+        {
+            var model = WeatherRecords
+                .FirstOrDefault(e => e.Id == weatherId);
+
+            return model == null
+                ? NotFound(new
+                {
+                    success = false,
+                    message = "Record not found."
+                })
+                : Ok(model);
         }
 
         [HttpPost]
-        [ProducesResponseType(typeof(WeatherModel), StatusCodes.Status201Created)]
-        [ProducesResponseType(StatusCodes.Status400BadRequest)]
-        public IActionResult Create([FromBody] WeatherModel model)
+        public IActionResult Create(
+            [FromBody] WeatherModel weatherData)
         {
             if (!ModelState.IsValid)
+            {
                 return BadRequest(ModelState);
+            }
 
-            model.Id = WeatherRecords.Count == 0
+            weatherData.Id = WeatherRecords.Count == 0
                 ? 1
                 : WeatherRecords.Max(e => e.Id) + 1;
 
-            WeatherRecords.Add(model);
+            WeatherRecords.Add(weatherData);
 
-            return CreatedAtAction(nameof(GetById), new { id = model.Id }, model);
+            return StatusCode(201, new
+            {
+                success = true,
+                message = "Record created successfully."
+            });
         }
 
         [HttpPut("{id:int}")]
-        [ProducesResponseType(typeof(WeatherModel), StatusCodes.Status200OK)]
-        [ProducesResponseType(StatusCodes.Status400BadRequest)]
-        [ProducesResponseType(StatusCodes.Status404NotFound)]
-        public IActionResult Update(int id, [FromBody] WeatherModel model)
+        public IActionResult Update(
+            int id,
+            [FromBody] WeatherModel obj)
         {
             if (!ModelState.IsValid)
+            {
                 return BadRequest(ModelState);
+            }
 
-            var existing = WeatherRecords.FirstOrDefault(x => x.Id == id);
+            var existing = WeatherRecords
+                .FirstOrDefault(x => x.Id == id);
 
             if (existing == null)
-                return NotFound();
+            {
+                return NotFound(new
+                {
+                    success = false,
+                    message = "Record not found."
+                });
+            }
 
-            existing.Date = model.Date;
-            existing.TemperatureC = model.TemperatureC;
-            existing.Summary = model.Summary;
+            existing.Date = obj.Date;
+            existing.TemperatureC = obj.TemperatureC;
+            existing.Summary = obj.Summary;
 
-            return Ok(existing);
+            return Ok(new
+            {
+                success = true,
+                result = existing
+            });
         }
 
         [HttpDelete("{id:int}")]
-        [ProducesResponseType(StatusCodes.Status204NoContent)]
-        [ProducesResponseType(StatusCodes.Status404NotFound)]
         public IActionResult Delete(int id)
         {
-            var existing = WeatherRecords.FirstOrDefault(x => x.Id == id);
+            var weather = WeatherRecords
+                .FirstOrDefault(x => x.Id == id);
 
-            if (existing == null)
-                return NotFound();
+            if (weather == null)
+            {
+                return NotFound(new
+                {
+                    success = false,
+                    message = "Record not found."
+                });
+            }
 
-            WeatherRecords.Remove(existing);
+            WeatherRecords.Remove(weather);
 
-            return NoContent();
+            return Ok(new
+            {
+                success = true,
+                message = "Deleted."
+            });
+        }
+
+        [HttpGet("summary/report")]
+        public IActionResult GetReport()
+        {
+            var report =
+                _weatherReportService
+                    .GenerateReport(WeatherRecords);
+
+            return Ok(report);
         }
     }
 }
